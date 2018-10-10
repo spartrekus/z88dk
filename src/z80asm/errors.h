@@ -11,6 +11,10 @@ Error handling.
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "error_func.h"
 #include <stdio.h>
 
@@ -51,3 +55,8 @@ extern void close_error_file( void );   /* deletes the file if no errors */
 *   Execute an error
 *----------------------------------------------------------------------------*/
 extern void do_error( enum ErrType err_type, char *message );
+
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

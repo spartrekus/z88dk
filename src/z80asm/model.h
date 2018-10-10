@@ -16,7 +16,10 @@ Global data model.
 #include "types.h"
 #include "utarray.h"
 
+#include <stdbool.h>
 
+extern bool cur_list;
+extern argv_t* argv_files;
 
 /*-----------------------------------------------------------------------------
 *   Initialize data structures
@@ -28,7 +31,7 @@ extern void model_init(void);
 *----------------------------------------------------------------------------*/
 
 /* interface to SrcFile singleton */
-extern bool  src_open(const char *filename, UT_array *dir_list );
+extern bool  src_open(const char *filename);
 extern char *src_getline( void );
 extern void  src_ungetline(const char *lines );
 extern const char *src_filename( void );

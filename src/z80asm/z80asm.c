@@ -20,6 +20,9 @@ Repository: https://github.com/pauloscustodio/z88dk-z80asm
 #include "strutil.h"
 #include "symbol.h"
 #include "die.h"
+#include "model.h"
+
+#include "cmdline.h"
 
 #include <sys/stat.h>
 
@@ -105,15 +108,15 @@ void assemble_file( const char *filename )
 	
 	/* append the directoy of the file being assembled to the include path 
 	   and remove it at function end */
-	argv_push(opts.inc_path, path_dir(src_filename));
+	opt_push_inc_path(path_dir(src_filename));
 
     /* normal case - assemble a asm source file */
-    opts.cur_list = opts.list;		/* initial LSTON status */
+    cur_list = opt_list();		/* initial LSTON status */
 
 	/* when building libraries need to reset codearea to allow total library size > 64K
 	   when building binary cannot reset codearea so that each module is linked
 	   after the previous one, allocating addresses */
-	if (!(opts.make_bin || opts.bin_file))
+	if (!(opt_make_bin() || opt_bin_file() || opt_consol_obj_file()))
 		reset_codearea();
 
     /* Create module data structures for new file */
@@ -134,10 +137,10 @@ void assemble_file( const char *filename )
 		query_assemble(src_filename);			/* try to assemble, check -d */
 
     set_error_null();							/* no more module in error messages */
-	opts.cur_list = false;
+	cur_list = false;
 
 	/* finished assembly, remove dirname from include path */
-	argv_pop(opts.inc_path);
+	opt_pop_inc_path();
 }
 
 /*-----------------------------------------------------------------------------
@@ -154,7 +157,7 @@ static void query_assemble(const char *src_filename )
     src_stat_result = stat( src_filename, &src_stat );		/* BUG_0033 */
     obj_stat_result = stat( obj_filename, &obj_stat );
 
-    if ( opts.date_stamp &&									/* -d option */
+    if ( opt_update() &&									/* -d option */
             obj_stat_result >= 0 &&							/* object file exists */
             ( src_stat_result >= 0 ?						/* if source file exists, ... */
               src_stat.st_mtime <= obj_stat.st_mtime		/* ... source older than object */
@@ -184,7 +187,7 @@ static void do_assemble(const char *src_filename )
 	clear_macros();
 
 	/* create list file */
-	if (opts.list)
+	if (opt_list())
 		list_open(get_list_filename(src_filename));
 
 	/* initialize local symtab with copy of static one (-D defines) */
@@ -193,7 +196,7 @@ static void do_assemble(const char *src_filename )
 	/* Init ASMPC */
 	set_PC(0);
 
-	if (opts.verbose)
+	if (opt_verbose())
 		printf("Assembling '%s' to '%s'\n", path_canon(src_filename), path_canon(obj_filename));
 
 	parse_file(src_filename);
@@ -227,10 +230,16 @@ static void do_assemble(const char *src_filename )
 	remove_all_global_syms();
 	ExprList_remove_all(CURRENTMODULE->exprs);
 
-	if (opts.verbose)
+	if (opt_verbose())
 		putchar('\n');    /* separate module texts */
 }
 
+
+void init_libraryhdr()
+{
+	libraryhdr = NULL;
+	atexit(ReleaseLibraries);
+}
 
 /* search library file name, return found name in strpool */
 const char *GetLibfile( const char *filename )
@@ -249,16 +258,14 @@ const char *GetLibfile( const char *filename )
 		return NULL;
 	}
 	
-	found_libfilename = path_search( get_lib_filename( filename ), opts.lib_path );
+	found_libfilename = opt_search_library( get_lib_filename( filename ) );
 
     newlib->libfilename = m_strdup( found_libfilename );		/* freed when newlib is freed */
 
 	if (!check_library_file(found_libfilename))					/* not a library or wrong version */
 		return NULL;
 
-	opts.library = true;
-
-	if (opts.verbose)
+	if (opt_verbose())
 		printf("Reading library '%s'\n", path_canon(found_libfilename));
 
 	return found_libfilename;
@@ -304,6 +311,9 @@ ReleaseLibraries( void )
 {
     struct libfile *curptr, *tmpptr;
 
+	if (!libraryhdr)
+		return;
+
     curptr = libraryhdr->firstlib;
 
     while ( curptr != NULL )    /* while there are libraries */
@@ -325,52 +335,45 @@ ReleaseLibraries( void )
 /***************************************************************************************************
  * Main entry of Z80asm
  ***************************************************************************************************/
-int z80asm_main( int argc, char *argv[] )
+int z80asm_main()
 {
-	model_init();						/* init global data */
-	libraryhdr = NULL;					/* initialise to no library files */
-	init_macros();
+	include_z80asm_lib();				/* search for z80asm-*.lib, append to library path */
+	define_assembly_defines();			/* defined options-dependent constants */
 
 	/* parse command line and call-back via assemble_file() */
 	/* If filename starts with '@', reads the file as a list of filenames
 	*	and assembles each one in turn */
-	parse_argv(argc, argv);
 	if (!get_num_errors()) {
-		for (char **pfile = argv_front(opts.files); *pfile; pfile++)
+		for (char **pfile = argv_front(argv_files); *pfile; pfile++)
 			assemble_file(*pfile);
 	}
 
 	/* Create output file */
 	if (!get_num_errors()) {
-		if (opts.lib_file) {
-			make_library(opts.lib_file, opts.files);
+		if (opt_lib_file()) {
+			make_library(opt_lib_file(), argv_files);
 		}
-		else if (opts.make_bin) {
-			xassert(opts.consol_obj_file == NULL);
+		else if (opt_make_bin()) {
 			link_modules();			
 
 			if (!get_num_errors())
 				CreateBinFile();
 
-			if (!get_num_errors())
-				checkrun_appmake();		/* call appmake if requested in the options */
+			if (!get_num_errors() && opt_appmake())
+				run_appmake();		/* call appmake if requested in the options */
 		}
-		else if (opts.bin_file) {	// -o consolidated obj
-			opts.consol_obj_file = get_obj_filename(opts.bin_file);
-			opts.bin_file = NULL;
-
-			xassert(opts.consol_obj_file != NULL);
+		else if (opt_consol_obj_file()) {	// -o consolidated obj
 			link_modules();
 
 			set_cur_module(get_first_module(NULL));
 			
-			CURRENTMODULE->filename = get_asm_filename(opts.consol_obj_file);
+			CURRENTMODULE->filename = get_asm_filename(opt_consol_obj_file());
 			CURRENTMODULE->modname = path_remove_ext(path_file(CURRENTMODULE->filename));
 
 			if (!get_num_errors())
-				write_obj_file(opts.consol_obj_file);
+				write_obj_file(opt_consol_obj_file());
 
-			if (!get_num_errors() && opts.symtable)
+			if (!get_num_errors() && opt_symtable())
 				write_sym_file(CURRENTMODULE);
 		}
 	}
@@ -383,7 +386,7 @@ int z80asm_main( int argc, char *argv[] )
 	if (libraryhdr != NULL)
 		ReleaseLibraries();    /* Release library information */
 
-	if (opts.relocatable)
+	if (opt_relocatable())
 	{
 		if (reloctable != NULL)
 			m_free(reloctable);

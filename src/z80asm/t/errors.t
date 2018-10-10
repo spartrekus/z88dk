@@ -307,7 +307,7 @@ t_z80asm_capture("-b", "",
 unlink_testfiles();
 write_file(asm_file(), "");
 t_z80asm_capture("-Zillegaloption ".asm_file(), "",
-		"Error: illegal option '-Zillegaloption'\n",
+		"Error: illegal option: -Zillegaloption\n",
 		1);
 
 #------------------------------------------------------------------------------
@@ -371,10 +371,17 @@ t_z80asm_error("defs 65536, 0xAA \n defb 0xAA \n",
 
 #------------------------------------------------------------------------------
 # error_illegal_src_filename
+#unlink_testfiles();
+#write_file(asm_file(), "nop");
+#t_z80asm_capture(asm_file()." -IllegalFilename", "",
+#		"Error: illegal source filename '-IllegalFilename'\n", 1);
+
+#------------------------------------------------------------------------------
+# options and file names may be mixed
 unlink_testfiles();
 write_file(asm_file(), "nop");
-t_z80asm_capture(asm_file()." -IllegalFilename", "",
-		"Error: illegal source filename '-IllegalFilename'\n", 1);
+t_z80asm_capture(asm_file()." -b", "", "", 0);
+t_binary(read_binfile(bin_file()), "\x00");
 
 #------------------------------------------------------------------------------
 # error_org_redefined - tested in directives.t
@@ -475,7 +482,7 @@ t_binary(read_binfile("test.bin"), "\xFE\x10");
 #------------------------------------------------------------------------------
 unlink_testfiles();
 
-my $objs = "errors.o error_func.o scan.o lib/array.o lib/class.o lib/str.o lib/strhash.o lib/list.o  ../common/fileutil.o ../common/strutil.o ../common/die.o ../common/objfile.o ../../ext/regex/regcomp.o ../../ext/regex/regerror.o ../../ext/regex/regexec.o ../../ext/regex/regfree.o options.o model.o module.o sym.o symtab.o codearea.o expr.o listfile.o lib/srcfile.o macros.o hist.o lib/dbg.o ";
+my $objs = "errors.o error_func.o scan.o lib/array.o lib/class.o lib/str.o lib/strhash.o lib/list.o  ../common/fileutil.o ../common/strutil.o ../common/die.o ../common/objfile.o ../../ext/regex/regcomp.o ../../ext/regex/regerror.o ../../ext/regex/regexec.o ../../ext/regex/regfree.o options.o model.o module.o sym.o symtab.o codearea.o z80asm.o cmdline.o expr.o listfile.o lib/srcfile.o macros.o hist.o lib/dbg.o ";
 if ($^O eq 'MSWin32') {
 	  $objs .= "../../ext/UNIXem/src/glob.o ../../ext/UNIXem/src/dirent.o ";
 }

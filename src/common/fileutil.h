@@ -4,6 +4,9 @@
 // License: http://www.perlfoundation.org/artistic_license_2_0
 //-----------------------------------------------------------------------------
 #pragma once
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "strutil.h"
 #include "types.h"
@@ -94,3 +97,7 @@ extern long file_size(const char *filename);		// -1 if not regular file
 
 // search for a file on the given directory list, return full path name in strin pool
 extern const char *path_search(const char *filename, argv_t *dir_list);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif

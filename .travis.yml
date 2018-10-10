@@ -6,7 +6,7 @@ cache:
   - ~/.ccache
  
 
-language: c
+language: cpp
 
 # https://docs.travis-ci.com/user/languages/cpp/ - support C11
 # linux: gcc-4.9 and clang-3.6

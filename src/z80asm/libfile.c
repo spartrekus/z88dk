@@ -15,6 +15,8 @@ Handle library file contruction, reading and writing
 #include "zobjfile.h"
 #include "options.h"
 
+#include "cmdline.h"
+
 char Z80libhdr[] = "Z80LMF" OBJ_VERSION;
 
 /*-----------------------------------------------------------------------------
@@ -45,7 +47,7 @@ void make_library(const char *lib_filename, argv_t *src_files)
 	if ( lib_filename == NULL )
 		return;					/* ERROR */
 
-	if (opts.verbose)
+	if (opt_verbose())
 		printf("Creating library '%s'\n", path_canon(lib_filename));
 
 	/* write library header */
