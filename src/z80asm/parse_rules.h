@@ -39523,7 +39523,7 @@ static int get_start_state(ParseCtx *ctx)
 static bool _parse_statement_1(ParseCtx *ctx, Str *name, Str *stmt_label)
 {
  int value1 = 0;
- int start_num_errors = get_num_errors();
+ int start_num_errors = g_err_count;
  int expr_value = 0;
  bool expr_error = false;
  bool expr_in_parens = false;
@@ -76622,7 +76622,7 @@ _again:
    return false;
   if ( ctx->cs >= 11140 )
    return true;
-  if (get_num_errors() != start_num_errors)
+  if (g_err_count != start_num_errors)
    break;
  }
  return false;

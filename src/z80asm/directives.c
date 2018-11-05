@@ -11,7 +11,7 @@ Assembly directives.
 
 #include "codearea.h"
 #include "directives.h"
-#include "errors.h"
+#include "c_errors.h"
 #include "fileutil.h"
 #include "model.h"
 #include "module.h"

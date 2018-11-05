@@ -23,6 +23,7 @@ Repository: https://github.com/pauloscustodio/z88dk-z80asm
 #include "model.h"
 
 #include "cmdline.h"
+#include "errors.h"
 
 #include <sys/stat.h>
 
@@ -78,7 +79,7 @@ void assemble_file( const char *filename )
 
 	/* try to load object file */
 	if (strcmp(filename, obj_filename) == 0 &&			/* input is object file */
-		file_exists(filename)							/* .o file exists */
+		c_file_exists(filename)							/* .o file exists */
 		) {
 		load_obj_only = true;
 		src_filename = filename;
@@ -87,15 +88,15 @@ void assemble_file( const char *filename )
 		load_obj_only = false;
 
 		/* use input file if it exists */
-		if (file_exists(filename)) {
+		if (c_file_exists(filename)) {
 			src_filename = filename;						/* use whatever extension was given */
 		}
 		else {
 			const char *asm_filename = get_asm_filename(filename);
-			if (file_exists(asm_filename)) {				/* file with .asm extension exists */
+			if (c_file_exists(asm_filename)) {				/* file with .asm extension exists */
 				src_filename = asm_filename;
 			}
-			else if (file_exists(obj_filename)) {
+			else if (c_file_exists(obj_filename)) {
 				load_obj_only = true;
 				src_filename = obj_filename;
 			}
@@ -181,7 +182,7 @@ static void query_assemble(const char *src_filename )
 *----------------------------------------------------------------------------*/
 static void do_assemble(const char *src_filename )
 {
-    int start_errors = get_num_errors();     /* count errors in this source file */
+    int start_errors = g_err_count;     /* count errors in this source file */
 	const char *obj_filename = get_obj_filename(src_filename);
 
 	clear_macros();
@@ -218,10 +219,10 @@ static void do_assemble(const char *src_filename )
 	set_error_null();
 
 	/* remove list file if more errors now than before */
-	list_close(start_errors == get_num_errors());
+	list_close(start_errors == g_err_count);
 
 	/* remove incomplete object file */
-	if (start_errors != get_num_errors())
+	if (start_errors != g_err_count)
 		remove(get_obj_filename(src_filename));
 
 	close_error_file();
@@ -337,29 +338,28 @@ ReleaseLibraries( void )
  ***************************************************************************************************/
 int z80asm_main()
 {
-	include_z80asm_lib();				/* search for z80asm-*.lib, append to library path */
-	define_assembly_defines();			/* defined options-dependent constants */
-
+#if 0
 	/* parse command line and call-back via assemble_file() */
 	/* If filename starts with '@', reads the file as a list of filenames
 	*	and assembles each one in turn */
-	if (!get_num_errors()) {
+	if (!g_err_count) {
 		for (char **pfile = argv_front(argv_files); *pfile; pfile++)
 			assemble_file(*pfile);
 	}
+#endif
 
 	/* Create output file */
-	if (!get_num_errors()) {
+	if (!g_err_count) {
 		if (opt_lib_file()) {
-			make_library(opt_lib_file(), argv_files);
+			make_library(opt_lib_file(), opt_argc(), opt_argv());
 		}
 		else if (opt_make_bin()) {
 			link_modules();			
 
-			if (!get_num_errors())
+			if (!g_err_count)
 				CreateBinFile();
 
-			if (!get_num_errors() && opt_appmake())
+			if (!g_err_count && opt_appmake())
 				run_appmake();		/* call appmake if requested in the options */
 		}
 		else if (opt_consol_obj_file()) {	// -o consolidated obj
@@ -370,10 +370,10 @@ int z80asm_main()
 			CURRENTMODULE->filename = get_asm_filename(opt_consol_obj_file());
 			CURRENTMODULE->modname = path_remove_ext(path_file(CURRENTMODULE->filename));
 
-			if (!get_num_errors())
+			if (!g_err_count)
 				write_obj_file(opt_consol_obj_file());
 
-			if (!get_num_errors() && opt_symtable())
+			if (!g_err_count && opt_symtable())
 				write_sym_file(CURRENTMODULE);
 		}
 	}
@@ -394,7 +394,7 @@ int z80asm_main()
 
 	free_macros();
 
-    if ( get_num_errors() )
+    if ( g_err_count )
     {
         return 1;	/* signal error */
     }

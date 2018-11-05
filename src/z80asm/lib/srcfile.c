@@ -13,7 +13,7 @@ Repository: https://github.com/pauloscustodio/z88dk-z80asm
 */
 
 #include "alloc.h"
-#include "../errors.h"
+#include "../c_errors.h"
 #include "srcfile.h"
 #include "strutil.h"
 #include "fileutil.h"

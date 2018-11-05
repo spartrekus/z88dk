@@ -12,6 +12,18 @@
 #endif
 #define COPYRIGHT   "(c) InterLogic 1993-2009, Paulo Custodio 2011-2018"
 
+// default file name extensions
+#define FILEEXT_ASM     ".asm"    
+#define FILEEXT_LIST    ".lis"    
+#define FILEEXT_OBJ     ".o"	  
+#define FILEEXT_DEF     ".def"    
+#define FILEEXT_ERR     ".err"    
+#define FILEEXT_BIN     ".bin"    
+#define FILEEXT_LIB     ".lib"    
+#define FILEEXT_SYM     ".sym"    
+#define FILEEXT_MAP     ".map"    
+#define FILEEXT_RELOC   ".reloc"  
+
 //-----------------------------------------------------------------------------
 // global option flags
 //-----------------------------------------------------------------------------
@@ -33,7 +45,8 @@ const char* m_bin_file = NULL;
 const char* m_lib_file = NULL;
 const char* m_output_dir = NULL;
 
-static vector<string> m_inc_path, m_lib_path;
+static vector<string> m_inc_path, m_lib_path, m_files;
+static Argv m_args({});
 
 //-----------------------------------------------------------------------------
 // parse numeric arguments
@@ -72,25 +85,19 @@ static int number_arg(const char *arg)
 static void option_origin(const char *origin_arg)
 {
 	int value = number_arg(origin_arg);
-	if (value < 0 || value > 0xFFFF) {
-		cerr << "Error: invalid origin: " << origin_arg << endl;
-		exit(EXIT_FAILURE);
-	}
-	else {
+	if (value < 0 || value > 0xFFFF) 
+		err_fatal_s("invalid origin: ", origin_arg);
+	else 
 		set_origin_option(value);
-	}
 }
 
 static void option_filler(const char *filler_arg)
 {
 	int value = number_arg(filler_arg);
-	if (value < 0 || value > 0xFF) {
-		cerr << "Error: invalid filler value: " << filler_arg << endl;
-		exit(EXIT_FAILURE);
-	}
-	else {
+	if (value < 0 || value > 0xFF) 
+		err_fatal_s("invalid filler value: ", filler_arg);
+	else 
 		m_filler = value;
-	}
 }
 
 //-----------------------------------------------------------------------------
@@ -98,19 +105,11 @@ static void option_filler(const char *filler_arg)
 //-----------------------------------------------------------------------------
 static const char *search_path(const char *filename, vector<string>& dirs)
 {
-	// no dir list, return path
-	if (dirs.empty())
-		return path_canon(filename);
-
-	// search in dir list
-	for (auto& d : dirs) {
-		const char *f = path_combine(d.c_str(), filename);
-		if (file_exists(f))
-			return f;
-	}
-
-	// not found, return original file name
-	return path_canon(filename);
+	string found = search_file(filename, dirs);
+	if (found.empty())
+		return path_canon(filename);		// not found
+	else
+		return path_canon(found.c_str());	// found
 }
 
 //-----------------------------------------------------------------------------
@@ -144,7 +143,7 @@ const char *cpu_define(int cpu_type)
 {
 	string symbol = "__CPU_" + string(cpu_symbol(cpu_type)) + "__";
 	transform(symbol.begin(), symbol.end(), symbol.begin(), ::toupper);
-	return spool_add(symbol.c_str());
+	return make_atom(symbol);
 }
 
 int cpu_type(const char *cpu_name)
@@ -159,6 +158,16 @@ int cpu_type(const char *cpu_name)
 	else if (cpu == "ti83plus") return CPU_TI83PLUS;
 	else return -1;
 }
+
+static void define_assembly_defines()
+{
+	define_static_def_sym(cpu_define(opt_cpu()), 1);
+
+	if (opt_swap_ix_iy()) {
+		define_static_def_sym("__SWAP_IX_IY__", 1);
+	}
+}
+
 
 //-----------------------------------------------------------------------------
 // run appmake
@@ -193,12 +202,11 @@ void run_appmake(void)
 		Section *first_section = get_first_section(NULL);
 		int origin = first_section->origin;
 		if (origin < m_appmake_origin_min || origin > m_appmake_origin_max) {
-			cerr << "Error: invalid origin: " << origin << endl;
-			exit(EXIT_FAILURE);
+			err_fatal_n("invalid origin: ", origin);
 		}
 		else {
 			const char *bin_filename = get_bin_filename(get_first_module(NULL)->filename);
-			const char *out_filename = path_replace_ext(bin_filename, m_appmake_ext);
+			const char *out_filename = make_atom(replace_extension(bin_filename, m_appmake_ext).c_str());
 
 			cmd << "appmake " << m_appmake_opts << " -b \"" << bin_filename << "\" -o \""
 				<< out_filename << "\" --org " << origin;
@@ -207,10 +215,8 @@ void run_appmake(void)
 				cout << cmd.str() << endl;
 
 			int rv = system(cmd.str().c_str());
-			if (rv != 0) {
-				cerr << "Error: command failed: " << cmd.str() << endl;
-				exit(EXIT_FAILURE);
-			}
+			if (rv != 0)
+				err_fatal_s("command failed: ", cmd.str().c_str());
 		}
 	}
 }
@@ -371,6 +377,145 @@ extern "C" void _debug_set_symtable_list()
 	m_list = true;
 }
 
+char **opt_argv()
+{
+	return m_args.argv();
+}
+
+int opt_argc()
+{
+	return m_args.argc();
+}
+
+//-----------------------------------------------------------------------------
+// parse command line files
+//-----------------------------------------------------------------------------
+static void add_list_file(const string& file);
+
+// search for source file in path
+// search with the given extension, with.asm extension and with.o extension
+// if not found, return original file
+static string search_source(const string& base_file)
+{
+	string found;
+
+	if (file_exists(base_file))
+		return base_file;
+
+	found = opt_search_source(base_file.c_str());
+	if (file_exists(found))
+		return found;
+
+	found = get_asm_filename(base_file.c_str());
+	if (file_exists(found))
+		return found;
+
+	found = opt_search_source(found.c_str());
+	if (file_exists(found))
+		return found;
+
+	found = get_obj_filename(base_file.c_str());
+	if (file_exists(found))
+		return found;
+
+	found = opt_search_source(found.c_str());
+	if (file_exists(found))
+		return found;
+
+	err_error_at_s("cannot find file: ", base_file.c_str());
+	err_fatal_exit();
+
+	return string();	// not reached
+}
+
+static void add_file(string file)
+{
+	string exp_file;
+	vector<string> exp_files;
+
+	trim(file);
+	if (!file.empty()) {
+		switch (file[0]) {
+		case '@':		// file list
+			exp_file = file.substr(1);
+			trim(exp_file);
+			exp_file = expand_env_vars(exp_file);
+			if (has_wildcard(exp_file)) {
+				exp_files = expand_file_glob(exp_file);
+
+				if (exp_files.empty()) {
+					err_error_at_s("no match: ", file.c_str());
+					err_fatal_exit();
+				}					
+
+				for (auto& it : exp_files) 
+					add_list_file(it);
+			}
+			else {
+				add_list_file(exp_file);
+			}
+			break;
+
+		default:
+			exp_file = expand_env_vars(file);
+			if (has_wildcard(exp_file)) {
+				exp_files = expand_file_glob(exp_file);
+
+				if (exp_files.empty()) {
+					err_error_at_s("no match: ", file.c_str());
+					err_fatal_exit();
+				}
+
+				for (auto& it : exp_files) 
+					m_files.push_back(search_source(it));
+			}
+			else {
+				m_files.push_back(search_source(exp_file));
+			}
+		}
+	}
+}
+
+static void add_list_file(const string& file)
+{
+	string found_file = opt_search_source(file.c_str());
+
+	if (err_file_is_open(found_file.c_str())) {
+		err_error_at_s("recursive include: ", file.c_str());
+		err_fatal_exit();
+	}
+
+	opt_push_inc_path(get_dirname(found_file).c_str());
+	{
+		ifstream ifs(found_file, ios::binary);
+		if (!ifs.good()) {
+			err_error_at_s("cannot open file: ", file.c_str());
+			err_fatal_exit();
+		}
+
+		err_push(file.c_str(), 0);
+		{
+			string line;
+			while (safe_getline(ifs, line).good()) {
+				g_err_loc.line_nr++;
+				trim(line);
+				if (!line.empty()) {
+					switch (line[0]) {
+					case ';':		// comment
+					case '#':
+						break;
+
+					default:
+						add_file(line);
+					}
+				}
+			}
+		}
+		err_pop();
+	}
+	opt_pop_inc_path();
+}
+
 //-----------------------------------------------------------------------------
 // parse command line options
 //-----------------------------------------------------------------------------
@@ -443,10 +588,9 @@ static void exit_help()
 static void opt_define(const string& arg)
 {
 	static regex symbol_re("[_[:alpha:]][_[:alnum:]]*");
-	if (!regex_match(arg, symbol_re)) {
-		cerr << "Error: illegal identifier: " << arg << endl;
-		exit(EXIT_FAILURE);
-	}
+
+	if (!regex_match(arg, symbol_re)) 
+		err_fatal_s("illegal identifier: ", arg.c_str());
 
 	define_static_def_sym(arg.c_str(), 1);
 }
@@ -461,24 +605,24 @@ static bool option_arg(int& i, int argc, char *argv[],
 	if (opt == long_opt) {
 		i++;
 		if (i < argc) {
-			arg = expand_environment_variables(argv[i]);
+			arg = expand_env_vars(argv[i]);
 			return true;
 		}
 		else {
-			cerr << "Error: option requires argument: " << opt << endl;
-			exit(EXIT_FAILURE);
+			err_fatal_s("option requires argument: ", opt.c_str());
+			return false;	// not reached
 		}
 	}
 	else if (opt.substr(0, short_opt.length() + 1) == short_opt + "=") {
-		arg = expand_environment_variables(opt.substr(short_opt.length() + 1).c_str());
+		arg = expand_env_vars(opt.substr(short_opt.length() + 1).c_str());
 		return true;
 	}
 	else if (opt.substr(0, long_opt.length() + 1) == long_opt + "=") {
-		arg = expand_environment_variables(opt.substr(long_opt.length() + 1).c_str());
+		arg = expand_env_vars(opt.substr(long_opt.length() + 1).c_str());
 		return true;
 	}
 	else if (opt.substr(0, short_opt.length()) == short_opt ) {
-		arg = expand_environment_variables(opt.substr(short_opt.length()).c_str());
+		arg = expand_env_vars(opt.substr(short_opt.length()).c_str());
 		return true;
 	}
 	else {
@@ -486,8 +630,12 @@ static bool option_arg(int& i, int argc, char *argv[],
 	}
 }
 
-static bool parse_cmdline(int argc, char *argv[])
+static void parse_cmdline(int argc, char *argv[])
 {
+	m_inc_path.clear();
+	m_lib_path.clear();
+	m_files.clear();
+
 	if (argc == 1)
 		exit_usage();
 
@@ -498,10 +646,13 @@ static bool parse_cmdline(int argc, char *argv[])
 		string arg;
 
 		if (argv[i][0] == '-') {
-			if (opt == "--") {
+			if (has_files) {
+				err_fatal_s("illegal source file: ", opt.c_str());
+			}
+			else if (opt == "--") {
 				i++;
 				while (i < argc) {
-					process_arg_file(argv[i]);
+					add_file(argv[i]);
 					has_files = true;
 					i++;
 				}
@@ -563,13 +714,10 @@ static bool parse_cmdline(int argc, char *argv[])
 				}
 				else {
 					int cpu = cpu_type(arg.c_str());
-					if (cpu < 0) {
-						cerr << "Error: invalid cpu: " << arg << endl;
-						return false;
-					}
-					else {
+					if (cpu < 0)
+						err_fatal_s("invalid cpu: ", arg.c_str());
+					else 
 						m_cpu = cpu;
-					}
 				}
 			}
 			else if (option_arg(i, argc, argv, "--filler", "--filler", arg)) {
@@ -579,57 +727,195 @@ static bool parse_cmdline(int argc, char *argv[])
 				option_origin(arg.c_str());
 			}
 			else if (option_arg(i, argc, argv, "-o", "--output", arg)) {
-				m_bin_file = spool_add(arg.c_str());
+				m_bin_file = make_atom(arg);
 			}
 			else if (option_arg(i, argc, argv, "-O", "--out-dir", arg)) {
-				m_output_dir = spool_add(path_canon(arg.c_str()));
+				m_output_dir = make_atom(path_canon(arg.c_str()));
 				path_mkdir(m_output_dir);
 			}
 			else if (option_arg(i, argc, argv, "-x", "--make-lib", arg)) {
-				m_lib_file = spool_add(arg.c_str());
+				m_lib_file = make_atom(arg);
 			}
 			else if (option_arg(i, argc, argv, "-i", "--link-lib", arg)) {
 				GetLibfile(arg.c_str());
 			}
 			else {
-				cerr << "Error: illegal option: " << argv[i] << endl;
-				return false;
+				err_fatal_s("illegal option: ", argv[i]);
 			}
 		}
 		else if (argv[i][0] == '+') {
-			if (opt == "+zx") {
+			if (has_files) {
+				err_fatal_s("illegal source file: ", opt.c_str());
+			}
+			else if (opt == "+zx") {
 				option_appmake_zx();
 			}
 			else if (opt == "+zx81") {
 				option_appmake_zx81();
 			}
 			else {
-				cerr << "Error: illegal option: " << argv[i] << endl;
-				return false;
+				err_fatal_s("illegal option: ", argv[i]);
 			}
 		}
 		else {
-			process_arg_file(argv[i]);
+			add_file(argv[i]);
 			has_files = true;
 		}
 	}
 
-	if (!has_files) {
-		cerr << "Error: source filename missing" << endl;
-		return false;
-	}
+	if (!has_files) 
+		err_fatal("source file missing");
 
-	return true;
+	m_args.init(m_files);
 }
 
+//-----------------------------------------------------------------------------
+// z80asm standard library
+// search in current die, then in exe path, then in exe path / .. / lib, 
+// then in ZCCCFG / ..
+// Ignore if not found, probably benign - user will see undefined symbols
+// __z80asm__xxx if the library routines are called
+//-----------------------------------------------------------------------------
+static bool check_library(const string& lib_name)
+{
+	if (file_exists(lib_name))
+		return true;
+
+	if (opt_verbose())
+		cout << "Library not found: " << simplify_path(lib_name) << endl;
+
+	return false;
+}
+
+static string search_z80asm_lib()
+{
+	string lib_name, f;
+		
+	// Build libary file name
+	lib_name = "z80asm-" 
+		+ string(cpu_symbol(opt_cpu())) + "-"
+		+ string(opt_swap_ix_iy() ? "ixiy" : "") 
+		+ ".lib";
+
+	// try to read from current directory
+	if (check_library(lib_name))
+		return lib_name;
+
+	// try to read from PREFIX/lib
+	f = combine_path(PREFIX, combine_path("lib", lib_name));
+	if (check_library(f))
+		return f;
+
+	// try to read form -L path
+	f = opt_search_library(get_lib_filename(lib_name.c_str()));
+	if (f != lib_name) {		// not the same, to avoid repeating verbose output
+		if (check_library(f))
+			return f;
+	}
+
+	// try to read from ZCCCFG/.. */
+	const char* zcccfg = getenv("ZCCCFG");
+	if (zcccfg) {
+		f = combine_path(zcccfg, combine_path("..", lib_name));
+		if (check_library(f))
+			return f;
+	}
+
+	return string();		// not found
+}
+
+static void include_z80asm_lib()
+{
+	string library = search_z80asm_lib();
+
+	if (!library.empty())
+		GetLibfile(library.c_str());
+}
+
+//-----------------------------------------------------------------------------
+// file extension
+//-----------------------------------------------------------------------------
+static const char *path_prepend_output_dir(const char *filename)
+{
+	const char* output_dir = opt_output_dir();
+	if (output_dir) {
+		return make_atom(combine_path(output_dir, filename));
+	}
+	else {
+		return make_atom(filename);
+	}
+}
+
+const char *get_list_filename(const char *filename)
+{
+	return path_prepend_output_dir(replace_extension(filename, FILEEXT_LIST).c_str());
+}
+
+const char *get_def_filename(const char *filename)
+{
+	return path_prepend_output_dir(replace_extension(filename, FILEEXT_DEF).c_str());
+}
+
+const char *get_err_filename(const char *filename)
+{
+	return path_prepend_output_dir(replace_extension(filename, FILEEXT_ERR).c_str());
+}
+
+const char *get_bin_filename(const char *filename)
+{
+	return path_prepend_output_dir(replace_extension(filename, FILEEXT_BIN).c_str());
+}
+
+const char *get_lib_filename(const char *filename)
+{
+	return make_atom(replace_extension(filename, FILEEXT_LIB).c_str());
+}
+
+const char *get_sym_filename(const char *filename)
+{
+	return path_prepend_output_dir(replace_extension(filename, FILEEXT_SYM).c_str());
+}
+
+const char *get_map_filename(const char *filename)
+{
+	return path_prepend_output_dir(replace_extension(filename, FILEEXT_MAP).c_str());
+}
+
+const char *get_reloc_filename(const char *filename)
+{
+	return path_prepend_output_dir(replace_extension(filename, FILEEXT_RELOC).c_str());
+}
+
+const char *get_asm_filename(const char *filename)
+{
+	return make_atom(replace_extension(filename, FILEEXT_ASM).c_str());
+}
+
+const char *get_obj_filename(const char *filename)
+{
+	return path_prepend_output_dir(replace_extension(filename, FILEEXT_OBJ).c_str());
+}
+
+//-----------------------------------------------------------------------------
+// main
+//-----------------------------------------------------------------------------
 int zmain(int argc, char *argv[])
 {
-	model_init();			// init global data
-	init_libraryhdr();		// initialise to no library files
+	model_init();				// init global data
+	init_libraryhdr();			// initialise to no library files
 	init_macros();
+	parse_cmdline(argc, argv);
 
-	if (!parse_cmdline(argc, argv))
-		exit(EXIT_FAILURE);
-	else
-		return z80asm_main();
+	include_z80asm_lib();		// search for z80asm-*.lib, append to library path
+	define_assembly_defines();	// defined options-dependent constants
+
+	// assemble each file
+	if (!g_err_count) {
+		argc = opt_argc();
+		argv = opt_argv();
+		for (int i = 0; i < argc; i++)
+			assemble_file(argv[i]);
+	}
+
+	return z80asm_main();
 }

@@ -187,7 +187,8 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\z80asm\codearea.c" />
     <ClCompile Include="..\..\src\z80asm\directives.c" />
-    <ClCompile Include="..\..\src\z80asm\errors.c" />
+    <ClCompile Include="..\..\src\z80asm\c_errors.c" />
+    <ClCompile Include="..\..\src\z80asm\errors.cpp" />
     <ClCompile Include="..\..\src\z80asm\error_func.c" />
     <ClCompile Include="..\..\src\z80asm\expr.c" />
     <ClCompile Include="..\..\src\z80asm\hist.c" />
@@ -219,9 +220,9 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="..\..\src\z80asm\cmdline.cpp" />
+    <ClCompile Include="..\..\src\z80asm\utils.cpp" />
     <ClCompile Include="..\..\src\z80asm\zobjfile.c" />
     <ClCompile Include="..\..\src\z80asm\opcodes.c" />
-    <ClCompile Include="..\..\src\z80asm\options.c" />
     <ClCompile Include="..\..\src\z80asm\parse.c" />
     <ClCompile Include="..\..\src\z80asm\scan.c" />
     <ClCompile Include="..\..\src\z80asm\sym.c" />
@@ -234,6 +235,7 @@
     <ClInclude Include="..\..\src\portability.h" />
     <ClInclude Include="..\..\src\z80asm\codearea.h" />
     <ClInclude Include="..\..\src\z80asm\directives.h" />
+    <ClInclude Include="..\..\src\z80asm\c_errors.h" />
     <ClInclude Include="..\..\src\z80asm\errors.h" />
     <ClInclude Include="..\..\src\z80asm\error_func.h" />
     <ClInclude Include="..\..\src\z80asm\expr.h" />
@@ -262,9 +264,9 @@
     <ClInclude Include="..\..\src\z80asm\stdhead.h" />
     <ClInclude Include="..\..\src\z80asm\stdlibs.h" />
     <ClInclude Include="..\..\src\z80asm\cmdline.h" />
+    <ClInclude Include="..\..\src\z80asm\utils.h" />
     <ClInclude Include="..\..\src\z80asm\zobjfile.h" />
     <ClInclude Include="..\..\src\z80asm\opcodes.h" />
-    <ClInclude Include="..\..\src\z80asm\options.h" />
     <ClInclude Include="..\..\src\z80asm\parse.h" />
     <ClInclude Include="..\..\src\z80asm\parse_rules.h" />
     <ClInclude Include="..\..\src\z80asm\scan.h" />

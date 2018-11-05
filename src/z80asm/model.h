@@ -19,7 +19,6 @@ Global data model.
 #include <stdbool.h>
 
 extern bool cur_list;
-extern argv_t* argv_files;
 
 /*-----------------------------------------------------------------------------
 *   Initialize data structures

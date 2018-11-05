@@ -11,8 +11,7 @@ Define CPU opcodes
 
 #pragma once
 
-#include "errors.h"
-#include "options.h"
+#include "c_errors.h"
 
 /* forward declaration without include cycle */
 struct Expr;
@@ -63,6 +62,11 @@ extern void add_copper_unit_stop();
 extern void add_copper_unit_nop();
 
 /* assert we are on a Z80 */
+#define CPU_ZILOG	(CPU_Z80 | CPU_Z80_ZXN| CPU_Z180)
+#define CPU_RABBIT	(CPU_R2K | CPU_R3K)
+#define CPU_ALL		(CPU_ZILOG | CPU_RABBIT)
+#define CPU_NOT_Z80	(CPU_ALL & ~(CPU_Z80 | CPU_Z80_ZXN))
+
 #define _Z80_ONLY(x)		(!(opt_cpu() & (CPU_Z80|CPU_Z80_ZXN)) ? \
 								(error_illegal_ident(), 0) : \
 								(x))

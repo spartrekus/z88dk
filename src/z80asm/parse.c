@@ -26,6 +26,7 @@ Define ragel-based parser.
 #include "die.h"
 
 #include "cmdline.h"
+#include "errors.h"
 
 #include <ctype.h>
 
@@ -90,12 +91,12 @@ struct Expr *parse_expr(const char *expr_text)
 		src_push();
 		{
 			SetTemporaryLine(expr_text);
-			num_errors = get_num_errors();
+			num_errors = g_err_count;
 			EOL = false;
 			scan_expect_operands();
 			GetSym();
 			expr = expr_parse();		/* may output error */
-			if (sym.tok != TK_END && num_errors == get_num_errors())
+			if (sym.tok != TK_END && num_errors == g_err_count)
 				error_syntax();
 		}
 		src_pop();
@@ -465,16 +466,16 @@ static void parseline(ParseCtx *ctx)
 	next_PC();				/* update assembler program counter */
 	EOL = false;			/* reset END OF LINE flag */
 
-	start_num_errors = get_num_errors();
+	start_num_errors = g_err_count;
 
 	scan_expect_opcode();
 	GetSym();
 
-	if (get_num_errors() != start_num_errors)		/* detect errors in GetSym() */
+	if (g_err_count != start_num_errors)		/* detect errors in GetSym() */
 		Skipline();
 	else if (!parse_statement(ctx))
 	{
-		if (get_num_errors() == start_num_errors)	/* no error output yet */
+		if (g_err_count == start_num_errors)	/* no error output yet */
 			error_syntax();
 
 		Skipline();
@@ -486,7 +487,7 @@ bool parse_file(const char *filename)
 {
 	ParseCtx *ctx;
 	OpenStruct *os;
-	int num_errors = get_num_errors();
+	int num_errors = g_err_count;
 
 	ctx = ParseCtx_new();
 	src_push();
@@ -510,7 +511,7 @@ bool parse_file(const char *filename)
 
 	ParseCtx_delete(ctx);
 
-	return num_errors == get_num_errors();
+	return num_errors == g_err_count;
 }
 
 /*-----------------------------------------------------------------------------

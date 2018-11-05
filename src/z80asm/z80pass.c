@@ -14,6 +14,9 @@ Repository: https://github.com/pauloscustodio/z88dk-z80asm
 #include "die.h"
 #include "model.h"
 
+#include "cmdline.h"
+#include "errors.h"
+
 /* external functions */
 
 /* local functions */
@@ -167,10 +170,10 @@ Z80pass2( void )
     //set_error_module( CURRENTMODULE->modname );
 
 	/* create object file */
-	if ( ! get_num_errors() )
+	if ( ! g_err_count )
 		write_obj_file( CURRENTMODULE->filename );
 
-    if ( ! get_num_errors() && opt_symtable() )
+    if ( ! g_err_count && opt_symtable() )
 		write_sym_file(CURRENTMODULE);
 }
 

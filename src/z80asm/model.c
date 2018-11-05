@@ -11,18 +11,16 @@ Global data model.
 
 #include "model.h"
 #include "codearea.h"
-#include "errors.h"
+#include "c_errors.h"
 #include "init.h"
 #include "macros.h"
 #include "listfile.h"
-#include "options.h"
 #include "srcfile.h"
 
 /*-----------------------------------------------------------------------------
 *   Global data
 *----------------------------------------------------------------------------*/
 bool cur_list = false;
-argv_t* argv_files = NULL;
 
 static SrcFile			*g_src_input;			/* input handle for reading source lines */
 
@@ -54,15 +52,11 @@ DEFINE_init_module()
 	/* setup input handler */
 	g_src_input = OBJ_NEW( SrcFile );
 	set_new_line_cb( new_line_cb );
-
-	argv_files = argv_new();
 }
 
 DEFINE_dtor_module()
 {
 	OBJ_DELETE( g_src_input );
-
-	argv_free(argv_files);
 }
 
 void model_init(void) 

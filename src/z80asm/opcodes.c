@@ -17,6 +17,8 @@ Define CPU opcodes
 #include "parse.h"
 #include "z80asm.h"
 
+#include "cmdline.h"
+
 #ifdef _MSC_VER
 #define snprintf _snprintf
 #endif

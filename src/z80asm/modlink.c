@@ -9,12 +9,11 @@ Repository: https://github.com/pauloscustodio/z88dk-z80asm
 
 #include "alloc.h"
 #include "codearea.h"
-#include "errors.h"
+#include "c_errors.h"
 #include "expr.h"
 #include "fileutil.h"
 #include "listfile.h"
 #include "modlink.h"
-#include "options.h"
 #include "scan.h"
 #include "str.h"
 #include "strutil.h"
@@ -24,6 +23,7 @@ Repository: https://github.com/pauloscustodio/z88dk-z80asm
 #include "model.h"
 
 #include "cmdline.h"
+#include "errors.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -793,40 +793,40 @@ void link_modules( void )
 
 	/* link libraries */
 	/* consol_obj_file do not include libraries */
-	if (!get_num_errors() && !opt_consol_obj_file())
+	if (!g_err_count && !opt_consol_obj_file())
 		link_libraries(extern_syms);
 
 	set_error_null();
 
 	/* allocate segment addresses and compute absolute addresses of symbols */
 	/* in consol_obj_file sections are zero-based */
-	if (!get_num_errors() && !opt_consol_obj_file())
+	if (!g_err_count && !opt_consol_obj_file())
 		sections_alloc_addr();
 
 	/* relocate address symbols */
-	if (!get_num_errors())
+	if (!g_err_count)
 		relocate_symbols();
 
 	/* define assembly size */
-	if (!get_num_errors() && !opt_consol_obj_file())
+	if (!g_err_count && !opt_consol_obj_file())
 		define_location_symbols();
 
 	if (opt_consol_obj_file()) {
-		if (!get_num_errors())
+		if (!g_err_count)
 			merge_modules(extern_syms);
 	}
 	else {
 		/* collect expressions from all modules */
 		exprs = OBJ_NEW(ExprList);
-		if (!get_num_errors())
+		if (!g_err_count)
 			read_module_exprs(exprs);
 
 		/* compute all EQU expressions */
-		if (!get_num_errors())
+		if (!g_err_count)
 			compute_equ_exprs(exprs, true, false);
 
 		/* patch all other expressions */
-		if (!get_num_errors())
+		if (!g_err_count)
 			patch_exprs(exprs);
 
 		OBJ_DELETE(exprs);
@@ -838,7 +838,7 @@ void link_modules( void )
 
 	close_error_file();
 
-	if (!get_num_errors()) {
+	if (!g_err_count) {
 		if (opt_map())
 			write_map_file();
 

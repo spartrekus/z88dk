@@ -13,9 +13,6 @@ endif
 
 # UNIXem is needed in both Windows_NT and in a MinGW build in Unix
 ifeq ($(EXE),.exe)
-  UNIXem_CFLAGS	:= -I../../ext/UNIXem/include
-  UNIXem_SRCS	:= ../../ext/UNIXem/src/glob.c \
-				   ../../ext/UNIXem/src/dirent.c
   REGEX_SRCS	:= $(wildcard ../../ext/regex/reg*.c)
 endif
 
@@ -46,8 +43,7 @@ LOCAL_FLAGS += -g -Wall -Wextra \
 			   -I../common \
 			   -I../../ext/optparse \
 			   -I../../ext/regex \
-			   -I../../ext/uthash/src \
-			   $(UNIXem_CFLAGS)
+			   -I../../ext/uthash/src
 LOCAL_CFLAGS	= -std=gnu11   $(LOCAL_FLAGS)
 LOCAL_CXXFLAGS	= -std=gnu++11 $(LOCAL_FLAGS)
 
@@ -62,7 +58,6 @@ LOCAL_CXXFLAGS	= -std=gnu++11 $(LOCAL_FLAGS)
 #------------------------------------------------------------------------------
 C_SRCS1		:= $(wildcard *.c lib/*.c ../common/*.c)
 C_SRCS		:= $(filter-out test*.c,$(C_SRCS1)) \
-			   $(UNIXem_SRCS) \
 			   $(REGEX_SRCS)
 OBJS		+= $(C_SRCS:.c=.o)
 DEPENDS		+= $(C_SRCS:.c=.d)

@@ -19,8 +19,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\z80asm\errors.cpp" />
     <ClCompile Include="..\..\src\z80asm\t\test.cpp" />
-    <ClCompile Include="..\..\src\z80asm\t\t_dummy.cpp" />
+    <ClCompile Include="..\..\src\z80asm\t\t_errors.cpp" />
+    <ClCompile Include="..\..\src\z80asm\t\t_redirect.cpp" />
+    <ClCompile Include="..\..\src\z80asm\t\t_utils.cpp" />
+    <ClCompile Include="..\..\src\z80asm\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\z80asm\t\test.h" />

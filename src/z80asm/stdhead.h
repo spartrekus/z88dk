@@ -25,10 +25,12 @@ using std::ofstream;
 using std::ostream;
 using std::streambuf;
 using std::stringstream;
+using std::istringstream;
 
 #include <string>
 using std::string;
 using std::to_string;
+using std::getline;
 
 #include <memory>
 using std::make_shared;
@@ -48,13 +50,18 @@ using std::unordered_set;
 
 #include <algorithm>
 using std::find_if;
+using std::sort;
 using std::transform;
+using std::unique;
 
 #include <utility>
 using std::make_pair;
 
 #include <regex>
 using std::regex;
+using std::smatch;
+using std::regex_search;
+using std::regex_match;
 
 #include <cassert>
 #include <cerrno>
@@ -64,13 +71,5 @@ using std::regex;
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
-#if 0
-#ifdef _WIN32
-#include <windows.h>
-#else // POSIX
-#include <unistd.h>
-#endif
-#endif
 
 #include <sys/stat.h>

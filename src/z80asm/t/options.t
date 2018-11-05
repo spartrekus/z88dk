@@ -935,5 +935,16 @@ unlink "test.bin";
 t_z80asm_capture('-mr3k -b test.asm', "", "", 0);
 t_binary(read_binfile("test.bin"), "\5");
 
+#------------------------------------------------------------------------------
+# --
+#------------------------------------------------------------------------------
+write_file("-test.asm", "nop");
+t_z80asm_capture("-b -test.asm", "", <<END, 1);
+Error: illegal option: -test.asm
+END
+t_z80asm_capture("-b -- -test.asm", "", "", 0);
+t_binary(read_binfile("-test.bin"), "\x00");
+unlink(<-test.*>);
+
 unlink_testfiles();
 done_testing();

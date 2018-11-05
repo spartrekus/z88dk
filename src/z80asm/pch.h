@@ -7,8 +7,14 @@
 #pragma once
 
 #include "cmdline.h"
+#include "errors.h"
+#include "utils.h"
 #include "z80asm.h"
 #include "stdhead.h"
+
+#ifndef NUM_ELEMS
+#define NUM_ELEMS(a)	((int)(sizeof(a) / sizeof((a)[0])))
+#endif
 
 // old headers
 extern "C" {
